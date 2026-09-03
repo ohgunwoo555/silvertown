@@ -10,7 +10,7 @@ topics.csv            주제 목록 (id, topic, key_message, sources, status)
 sources/              대본 근거 문서 (여기 없는 내용은 대본에 쓰지 않음)
 templates/            프롬프트 템플릿
   script_prompt.md    01 대본 프롬프트
-  image_style.md      배경 그림 고정 스타일·피할 것·문장별 image_prompt 규칙
+  image_style.md      배경 그림 고정 스타일(긍정형), 01 검증기 금지어, 문장별 image_prompt 규칙
 pipeline/common.py    경로, .env 로드, topics.csv 읽기
 assets/fonts/         자막 폰트 (tools/fetch_fonts.py 로 내려받음, FONT.json 이 family 이름을 기록)
 assets/backgrounds/   배경 소재 (공통 또는 {id}/ 하위 폴더)
@@ -85,7 +85,7 @@ IMAGE_PROVIDER=fal python 04_background.py --dry-run   # 컷별 프롬프트만 
 IMAGE_PROVIDER=fal python 04_background.py             # 컷당 한 장 생성 → output/{id}/bg_{n}.png (과금)
 ```
 
-프롬프트는 01 이 문장마다 만든 `image_prompts` 에 `templates/image_style.md` 의 style 과 avoid 를 붙인 것이다. 키가 없으면 그라데이션으로 넘어간다.
+프롬프트는 01 이 문장마다 만든 `image_prompts` 에 `templates/image_style.md` 의 style(긍정형 문구만)을 붙인 것이다. avoid 목록은 01 검증기의 금지어로만 쓴다. 키가 없으면 그라데이션으로 넘어간다.
 
 ## 05 렌더
 
@@ -119,6 +119,7 @@ OAuth 토큰은 `token.json` 에서만 읽는다. 없으면 개인 기기에서 
    - `ANTHROPIC_API_KEY` — 01 대본 생성
    - `NCP_CLOVA_CLIENT_ID`, `NCP_CLOVA_CLIENT_SECRET` — 02 TTS (네이버 클라우드 > AI·NAVER API > CLOVA Voice)
    - 키가 아직 없으면 `TTS_PROVIDER=edge` 로 먼저 돌려볼 수 있다 (무료, 인터넷 필요)
+   - 선택: `IMAGE_PROVIDER=fal`, `FAL_KEY` — 04 배경 이미지 생성 (컷당 한 장 과금). 없으면 그라데이션
    - 확인: `python -c "import os;print([k for k in ('ANTHROPIC_API_KEY','NCP_CLOVA_CLIENT_ID','NCP_CLOVA_CLIENT_SECRET') if os.environ.get(k)])"`
 2. **도구 설치**
    ```bash
@@ -135,8 +136,11 @@ OAuth 토큰은 `token.json` 에서만 읽는다. 없으면 개인 기기에서 
    python 02_tts.py --dry-run        # 요청 내용 확인 (무료)
    python 02_tts.py                  # Clova Voice, 문장 수만큼 호출
    python 03_subtitle.py             # audio.json 실측 타이밍
-   python 04_background.py           # 소재 없으면 그라데이션
+   python 04_background.py --dry-run # 컷 계획 확인. IMAGE_PROVIDER=fal 이면 컷별 프롬프트도 출력 (무료)
+   python 04_background.py           # 소재 없으면 그라데이션. fal 이면 컷 수만큼 과금
    python 05_render.py               # output/001.mp4 + preview_*.jpg
    ```
-   02 결과의 `audio.json` 총 길이를 보고 `pipeline/common.py` 의 `CHARS_PER_SEC`(현재 4.2 추정) 를 보정한다.
+   - 02 결과의 `audio.json` 총 길이를 보고 `pipeline/common.py` 의 `CHARS_PER_SEC`(현재 4.2 추정) 를 보정한다.
+   - 01 결과의 `image_prompts` 가 검증을 통과했는지, fal 로 만든 그림에 글자·얼굴이 없는지 `preview_*.jpg` 로 눈으로 확인한다.
+   - 001 은 손으로 쓴 대본이 `docs/preview/001/script.json` 에 있다. 01 을 건너뛰려면 `output/001/` 로 복사한다.
 5. **세션 종료 전** — `output/` 을 비운다 (`rm -rf output/*`). 남길 미리보기는 `docs/preview/{id}/` 로 복사.

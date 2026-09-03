@@ -131,3 +131,10 @@ def load_image_style(path: Path = TEMPLATES_DIR / "image_style.md") -> dict[str,
         if not out.get(key):
             raise ValueError(f"{path} 에 '## {key}' 구획이 없습니다.")
     return out
+
+
+def image_banned_regex(avoid: str):
+    """## avoid 의 쉼표 목록 → 단어 경계 정규식 (단수·복수 함께). 01 검증기 전용."""
+    import re
+    phrases = [re.escape(x.strip()) for x in avoid.split(",") if x.strip()]
+    return re.compile(r"\b(?:" + "|".join(p + "s?" for p in phrases) + r")\b", re.I)

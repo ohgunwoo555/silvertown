@@ -4,7 +4,7 @@
 우선순위
   1. 로컬  assets/backgrounds/{id}/  →  assets/backgrounds/   (영상·이미지)
   2. 이미지 생성 (IMAGE_PROVIDER=fal, FAL_KEY 필요): 컷당 한 장 → output/{id}/bg_{n}.png
-     프롬프트 = script.json 의 문장별 image_prompt + templates/image_style.md 의 style/avoid
+     프롬프트 = script.json 의 문장별 image_prompt + templates/image_style.md 의 style (긍정형 문구만)
   3. Pexels 영상 검색 (USE_PEXELS=true 일 때만, PEXELS_API_KEY 필요)
   4. 단색 그라데이션 PNG 자동 생성 (아무것도 없거나 키가 없을 때. 렌더가 멈추지 않게 한다)
 
@@ -174,14 +174,15 @@ def fetch_pexels(keywords: list[str], n: int, api_key: str, bg_dir: Path) -> lis
 # ---------- 이미지 생성 (fal.ai) ----------
 
 def build_image_prompt(cut: dict, script: dict, style: dict) -> str:
-    """컷의 첫 문장 image_prompt + 고정 스타일 + 피할 것. image_prompt 가 없으면 keywords 로 대신."""
+    """컷의 첫 문장 image_prompt + 고정 스타일. image_prompt 가 없으면 keywords 로 대신.
+    ## avoid 목록은 붙이지 않는다 (01 검증기에서만 쓴다)."""
     prompts = script.get("image_prompts") or []
     first = cut["sentences"][0] - 1
     scene = prompts[first].strip() if first < len(prompts) and prompts[first].strip() else ""
     if not scene:
         scene = "a calm everyday scene about " + ", ".join(script.get("keywords") or [script.get("topic", "health")])
     scene = scene.rstrip(".")
-    return f"{scene}. {style['style']}. Avoid: {style['avoid']}."
+    return f"{scene}. {style['style']}."
 
 
 def parse_fal_size(value: str):
@@ -284,7 +285,7 @@ def main() -> int:
     if args.dry_run:
         show_prompts = image_provider == "fal" or source == "fal"
         if show_prompts:
-            print(f"  공통 style : {style['style']}\n  공통 avoid : {style['avoid']}\n  (컷별 프롬프트 = 아래 장면 + 공통 style + 'Avoid: ' + 공통 avoid)")
+            print(f"  공통 style : {style['style']}\n  (컷별 프롬프트 = 아래 장면 + 공통 style)")
         for c in cuts:
             print(f"  컷{c['index']:2d} {c['start']:6.2f} → {c['end']:6.2f} ({c['duration']:.1f}s) 문장 {c['sentences']}")
             if show_prompts:

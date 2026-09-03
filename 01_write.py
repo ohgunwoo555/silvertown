@@ -26,6 +26,7 @@ from pipeline.common import (
     TEMPLATES_DIR,
     Topic,
     estimate_seconds,
+    image_banned_regex,
     load_dotenv,
     load_image_style,
     pick_topic,
@@ -50,10 +51,15 @@ BANNED_PATTERNS = [
     r"\d+\s*(mg|ml|㎎|㎖|kcal)",  # 단위 붙은 수치
 ]
 
-# image_prompt 에 들어가면 안 되는 말 (templates/image_style.md 의 규칙을 기계로 거르는 최소선)
-IMAGE_BANNED = re.compile(
-    r"\b(text|letters?|numbers?|words?|logo|sign|signs|label|labels|close-?up|face|faces|facial|"
-    r"syringe|needle|pills?|tablets?|blood|monitor|stethoscope)\b", re.I)
+# image_prompt 금지어: templates/image_style.md 의 ## avoid 목록 (검증에만 쓰고 프롬프트에는 붙이지 않는다)
+_IMAGE_BANNED = None
+
+
+def image_banned():
+    global _IMAGE_BANNED
+    if _IMAGE_BANNED is None:
+        _IMAGE_BANNED = image_banned_regex(load_image_style()["avoid"])
+    return _IMAGE_BANNED
 
 OUTPUT_SCHEMA = {
     "type": "object",
@@ -156,7 +162,7 @@ def validate(script: dict, topic: Topic) -> list[str]:
             problems.append(f"{i}번 image_prompt 가 너무 짧습니다: {p!r}")
         elif not re.fullmatch(r"[\x20-\x7E]+", p):
             problems.append(f"{i}번 image_prompt 는 영어로만 씁니다: {p}")
-        m = IMAGE_BANNED.search(p)
+        m = image_banned().search(p)
         if m:
             problems.append(f"{i}번 image_prompt 에 금지어({m.group(0)}): {p}")
 
