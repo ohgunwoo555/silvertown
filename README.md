@@ -10,6 +10,7 @@ topics.csv            주제 목록 (id, topic, key_message, sources, status)
 sources/              대본 근거 문서 (여기 없는 내용은 대본에 쓰지 않음)
 templates/            프롬프트 템플릿
   script_prompt.md    01 대본 프롬프트
+  image_style.md      배경 그림 고정 스타일·피할 것·문장별 image_prompt 규칙
 pipeline/common.py    경로, .env 로드, topics.csv 읽기
 assets/fonts/         자막 폰트 (tools/fetch_fonts.py 로 내려받음, FONT.json 이 family 이름을 기록)
 assets/backgrounds/   배경 소재 (공통 또는 {id}/ 하위 폴더)
@@ -77,7 +78,14 @@ python 04_background.py --dry-run  # 컷 계획만
 python 04_background.py            # background.json 생성
 ```
 
-문장 경계에서만 컷을 바꾸고 한 컷은 3초 이상. 소재는 `assets/backgrounds/{id}/` → `assets/backgrounds/` → Pexels(`USE_PEXELS=true` 일 때만) → 그라데이션 PNG 자동 생성 순서로 고른다.
+문장 경계에서만 컷을 바꾸고 한 컷은 3초 이상. 소재는 `assets/backgrounds/{id}/` → `assets/backgrounds/` → 이미지 생성(`IMAGE_PROVIDER=fal`, `FAL_KEY` 필요) → Pexels(`USE_PEXELS=true`) → 그라데이션 PNG 순서로 고른다.
+
+```bash
+IMAGE_PROVIDER=fal python 04_background.py --dry-run   # 컷별 프롬프트만 확인 (무료)
+IMAGE_PROVIDER=fal python 04_background.py             # 컷당 한 장 생성 → output/{id}/bg_{n}.png (과금)
+```
+
+프롬프트는 01 이 문장마다 만든 `image_prompts` 에 `templates/image_style.md` 의 style 과 avoid 를 붙인 것이다. 키가 없으면 그라데이션으로 넘어간다.
 
 ## 05 렌더
 

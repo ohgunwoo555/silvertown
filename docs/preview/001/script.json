@@ -19,6 +19,19 @@
     "열은 나는데 땀이 안 나면, 바로 병원 가세요.",
     "갈증이 안 나도 물 자주 드세요, 아셨죠?"
   ],
+  "image_prompts": [
+    "an elderly person seen from behind sitting on a bench in a sunny park, one hand raised gently",
+    "wrinkled hands holding a clear glass of water on a wooden table by a bright window",
+    "an elderly person viewed from the side resting in an armchair with an untouched glass of water nearby",
+    "a wilting potted plant on a windowsill next to an empty glass, soft afternoon light",
+    "a small water bottle and a cup on a bedside table, morning light through curtains",
+    "a quiet village road under strong midday sun with long shadows and an empty bench in the shade",
+    "a coffee cup and a small glass of rice wine pushed to the back of a table, a glass of water in front",
+    "an elderly person seen from behind pausing on a garden path, one hand resting on a wooden railing",
+    "a bright bathroom doorway with a folded towel and a glass of water on the sink, soft light",
+    "a small clinic building seen from the street on a hot summer day, a tree giving shade at the entrance",
+    "an elderly couple seen from behind walking slowly in a park, one carrying a water bottle"
+  ],
   "keywords": [
     "elderly drinking water",
     "summer heat",

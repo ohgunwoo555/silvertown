@@ -27,6 +27,7 @@ from pipeline.common import (
     Topic,
     estimate_seconds,
     load_dotenv,
+    load_image_style,
     pick_topic,
     read_sources,
 )
@@ -49,15 +50,21 @@ BANNED_PATTERNS = [
     r"\d+\s*(mg|ml|㎎|㎖|kcal)",  # 단위 붙은 수치
 ]
 
+# image_prompt 에 들어가면 안 되는 말 (templates/image_style.md 의 규칙을 기계로 거르는 최소선)
+IMAGE_BANNED = re.compile(
+    r"\b(text|letters?|numbers?|words?|logo|sign|signs|label|labels|close-?up|face|faces|facial|"
+    r"syringe|needle|pills?|tablets?|blood|monitor|stethoscope)\b", re.I)
+
 OUTPUT_SCHEMA = {
     "type": "object",
     "properties": {
         "title": {"type": "string"},
         "sentences": {"type": "array", "items": {"type": "string"}},
+        "image_prompts": {"type": "array", "items": {"type": "string"}},
         "keywords": {"type": "array", "items": {"type": "string"}},
         "description": {"type": "string"},
     },
-    "required": ["title", "sentences", "keywords", "description"],
+    "required": ["title", "sentences", "image_prompts", "keywords", "description"],
     "additionalProperties": False,
 }
 
@@ -92,6 +99,7 @@ def build_prompt(topic: Topic) -> tuple[str, str]:
         "min_sentences": MIN_SENTENCES,
         "max_sentences": MAX_SENTENCES,
         "max_chars": MAX_CHARS_PER_SENTENCE,
+        "image_rules": load_image_style()["rules"],
     }
     return render(system_t, values), render(user_t, values)
 
@@ -138,6 +146,19 @@ def validate(script: dict, topic: Topic) -> list[str]:
     km, last = norm(topic.key_message), norm(sents[-1])
     if km and len(km & last) / len(km) < 0.5:
         problems.append(f"마지막 문장이 핵심 메시지와 다릅니다: {sents[-1]}")
+
+    # 문장별 그림 설명: 개수 일치, 영어, 금지어
+    prompts = [p.strip() for p in script.get("image_prompts", [])]
+    if len(prompts) != len(sents):
+        problems.append(f"image_prompts 가 {len(prompts)}개, 문장은 {len(sents)}개입니다.")
+    for i, p in enumerate(prompts, 1):
+        if len(p) < 10:
+            problems.append(f"{i}번 image_prompt 가 너무 짧습니다: {p!r}")
+        elif not re.fullmatch(r"[\x20-\x7E]+", p):
+            problems.append(f"{i}번 image_prompt 는 영어로만 씁니다: {p}")
+        m = IMAGE_BANNED.search(p)
+        if m:
+            problems.append(f"{i}번 image_prompt 에 금지어({m.group(0)}): {p}")
 
     title = script.get("title", "")
     if not title or len(title) > 20:
@@ -259,6 +280,7 @@ def main() -> int:
         "sources": topic.sources,
         "title": script["title"],
         "sentences": sents,
+        "image_prompts": [p.strip() for p in script.get("image_prompts", [])],
         "keywords": script["keywords"],
         "description": script["description"],
         "stats": {"sentences": len(sents), "chars": total, "est_seconds": estimate_seconds(sents)},

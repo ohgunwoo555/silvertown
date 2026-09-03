@@ -119,3 +119,15 @@ def read_sources(topic: Topic) -> str:
             raise ValueError(f"[{topic.id}] 근거 문서가 아직 뼈대입니다 ('[채워야 함]' 표시): {name}")
         parts.append(f"<source file=\"{name}\">\n{text}\n</source>")
     return "\n\n".join(parts)
+
+
+def load_image_style(path: Path = TEMPLATES_DIR / "image_style.md") -> dict[str, str]:
+    """templates/image_style.md 의 ## style / ## avoid / ## rules 구획을 dict 로."""
+    import re
+    text = re.sub(r"<!--.*?-->", "", path.read_text(encoding="utf-8"), flags=re.S)
+    parts = re.split(r"^## (\w+)\s*$", text, flags=re.M)
+    out = {parts[i].strip().lower(): parts[i + 1].strip() for i in range(1, len(parts) - 1, 2)}
+    for key in ("style", "avoid", "rules"):
+        if not out.get(key):
+            raise ValueError(f"{path} 에 '## {key}' 구획이 없습니다.")
+    return out

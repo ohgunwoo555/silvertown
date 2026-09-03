@@ -1,7 +1,7 @@
 <!--
 01_write.py 가 읽는 프롬프트 템플릿.
 `## system` 아래는 system 프롬프트, `## user` 아래는 user 메시지가 된다.
-치환자: {{topic}} {{key_message}} {{sources}} {{min_sentences}} {{max_sentences}} {{max_chars}}
+치환자: {{topic}} {{key_message}} {{sources}} {{min_sentences}} {{max_sentences}} {{max_chars}} {{image_rules}}
 -->
 
 ## system
@@ -31,10 +31,14 @@
 - 안내문·뉴스·광고 말투("~하시기 바랍니다", "~를 권장합니다")는 쓰지 않습니다.
 - 쉼표로 숨 쉬는 자리를 표시합니다. (예: "그러니까 조금씩, 자주 드세요.")
 
+### 배경 그림 설명 (image_prompts) 규칙
+{{image_rules}}
+
 ### 출력
 JSON 하나만 출력합니다. 다른 말은 쓰지 않습니다.
 - title: 유튜브 제목, 20자 이내, 핵심 메시지가 보이게
 - sentences: 대본 문장 배열. 문장마다 마침표로 끝냅니다. 자막 한 줄에 그대로 들어갑니다.
+- image_prompts: sentences 와 같은 개수. 문장마다 배경 그림 설명 영어 한 문장 (위 규칙)
 - keywords: 배경 영상 검색용 영어 단어 2~4개 (예: "elderly drinking water", "summer park")
 - description: 유튜브 설명글 2문장, 존댓말
 

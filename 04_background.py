@@ -3,19 +3,22 @@
 
 우선순위
   1. 로컬  assets/backgrounds/{id}/  →  assets/backgrounds/   (영상·이미지)
-  2. Pexels 영상 검색 (USE_PEXELS=true 일 때만, PEXELS_API_KEY 필요)
-  3. 단색 그라데이션 PNG 자동 생성 (아무것도 없을 때. 렌더가 멈추지 않게 한다)
+  2. 이미지 생성 (IMAGE_PROVIDER=fal, FAL_KEY 필요): 컷당 한 장 → output/{id}/bg_{n}.png
+     프롬프트 = script.json 의 문장별 image_prompt + templates/image_style.md 의 style/avoid
+  3. Pexels 영상 검색 (USE_PEXELS=true 일 때만, PEXELS_API_KEY 필요)
+  4. 단색 그라데이션 PNG 자동 생성 (아무것도 없거나 키가 없을 때. 렌더가 멈추지 않게 한다)
 
 컷은 문장 경계에서만 바뀌고 한 컷은 3초 이상이다 (CLAUDE.md 영상 규칙).
 
 사용법:
     python 04_background.py                # topics.csv 첫 행
     python 04_background.py --id 001
-    python 04_background.py --dry-run      # 컷 계획과 소재 배정만 출력, 파일 안 만듦
-    python 04_background.py --gradient     # 로컬·Pexels 를 무시하고 그라데이션만 사용
+    python 04_background.py --dry-run      # 컷 계획·소재·이미지 프롬프트만 출력, 파일 안 만듦
+    python 04_background.py --gradient     # 로컬·생성·Pexels 를 무시하고 그라데이션만 사용
+    IMAGE_PROVIDER=fal python 04_background.py --dry-run   # 생성 프롬프트 확인
 
-비용: USE_PEXELS=true 일 때만 Pexels API 호출 (무료 키, 월 한도 있음). 기본은 꺼짐.
-키: PEXELS_API_KEY 환경변수(또는 .env)에서만 읽는다.
+비용: IMAGE_PROVIDER=fal 이면 컷 수만큼 fal.ai 이미지 생성 과금, USE_PEXELS=true 면 Pexels 호출. 실행 전 확인할 것.
+키: FAL_KEY, PEXELS_API_KEY 환경변수(또는 .env)에서만 읽는다.
 """
 from __future__ import annotations
 
@@ -23,13 +26,14 @@ import argparse
 import json
 import os
 import random
+import re
 import struct
 import sys
 import zlib
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pipeline.common import ASSETS_DIR, OUTPUT_DIR, load_dotenv, pick_topic
+from pipeline.common import ASSETS_DIR, OUTPUT_DIR, load_dotenv, load_image_style, pick_topic
 
 BG_DIR = ASSETS_DIR / "backgrounds"
 VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".webm"}
@@ -39,6 +43,12 @@ WIDTH, HEIGHT = 1080, 1920
 
 PEXELS_URL = "https://api.pexels.com/videos/search"
 PEXELS_PER_PAGE = 5
+
+# --- 이미지 생성 (fal.ai) ---
+IMAGE_PROVIDERS = ("none", "fal")
+FAL_URL = "https://fal.run/{model}"                 # 동기 엔드포인트
+DEFAULT_FAL_MODEL = "fal-ai/flux/schnell"            # 환경변수 FAL_MODEL 로 변경
+DEFAULT_FAL_SIZE = "portrait_16_9"                   # 또는 "WxH" (예: 1088x1920). 05 가 1080x1920 으로 채운다
 
 # 어르신 눈에 편한 차분한 색. (위 색, 아래 색) 쌍으로 세로 그라데이션.
 GRADIENTS = [
@@ -161,6 +171,45 @@ def fetch_pexels(keywords: list[str], n: int, api_key: str, bg_dir: Path) -> lis
     return picked
 
 
+# ---------- 이미지 생성 (fal.ai) ----------
+
+def build_image_prompt(cut: dict, script: dict, style: dict) -> str:
+    """컷의 첫 문장 image_prompt + 고정 스타일 + 피할 것. image_prompt 가 없으면 keywords 로 대신."""
+    prompts = script.get("image_prompts") or []
+    first = cut["sentences"][0] - 1
+    scene = prompts[first].strip() if first < len(prompts) and prompts[first].strip() else ""
+    if not scene:
+        scene = "a calm everyday scene about " + ", ".join(script.get("keywords") or [script.get("topic", "health")])
+    scene = scene.rstrip(".")
+    return f"{scene}. {style['style']}. Avoid: {style['avoid']}."
+
+
+def parse_fal_size(value: str):
+    m = re.fullmatch(r"(\d{3,4})x(\d{3,4})", value.strip())
+    return {"width": int(m.group(1)), "height": int(m.group(2))} if m else value.strip()
+
+
+def fal_generate(prompt: str, out: Path, seed: int) -> dict:
+    """fal.ai 동기 호출 → 이미지 한 장 저장. 응답의 url/seed 를 돌려준다."""
+    import requests
+    key = os.environ["FAL_KEY"]
+    model = os.environ.get("FAL_MODEL", DEFAULT_FAL_MODEL)
+    body = {"prompt": prompt, "image_size": parse_fal_size(os.environ.get("FAL_IMAGE_SIZE", DEFAULT_FAL_SIZE)),
+            "num_images": 1, "output_format": "png", "enable_safety_checker": True, "seed": seed}
+    r = requests.post(FAL_URL.format(model=model), headers={"Authorization": f"Key {key}"}, json=body, timeout=180)
+    if r.status_code != 200:
+        sys.exit(f"fal.ai 오류 {r.status_code}: {r.text[:300]}")
+    data = r.json()
+    images = data.get("images") or []
+    if not images or not images[0].get("url"):
+        sys.exit(f"fal.ai 응답에 이미지가 없습니다: {str(data)[:300]}")
+    img = requests.get(images[0]["url"], timeout=120)
+    img.raise_for_status()
+    out.write_bytes(img.content)
+    return {"url": images[0]["url"], "seed": data.get("seed", seed), "model": model,
+            "width": images[0].get("width"), "height": images[0].get("height")}
+
+
 # ---------- 그라데이션 PNG (외부 라이브러리 없이) ----------
 
 def write_gradient_png(path: Path, top: tuple, bottom: tuple, w: int = WIDTH, h: int = HEIGHT) -> None:
@@ -183,8 +232,11 @@ def main() -> int:
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--id", help="topics.csv 의 id")
     g.add_argument("--row", type=int, help="topics.csv 행 번호 (1부터)")
-    ap.add_argument("--dry-run", action="store_true", help="계획만 출력, 파일 안 만듦")
-    ap.add_argument("--gradient", action="store_true", help="로컬·Pexels 무시, 그라데이션만")
+    ap.add_argument("--dry-run", action="store_true", help="계획·프롬프트만 출력, 파일 안 만듦")
+    ap.add_argument("--gradient", action="store_true", help="로컬·생성·Pexels 무시, 그라데이션만")
+    ap.add_argument("--image-provider", choices=IMAGE_PROVIDERS, default=None,
+                    help="이미지 생성 백엔드 (기본: 환경변수 IMAGE_PROVIDER, 없으면 none)")
+    ap.add_argument("--force", action="store_true", help="이미 있는 bg_{n}.png 도 다시 생성")
     args = ap.parse_args()
 
     load_dotenv()
@@ -197,30 +249,50 @@ def main() -> int:
     if not subs_path.exists():
         sys.exit(f"subtitles.json 이 없습니다: {subs_path}  (먼저 03_subtitle.py)")
     subs = json.loads(subs_path.read_text(encoding="utf-8"))
-    keywords = json.loads(script_path.read_text(encoding="utf-8")).get("keywords", []) if script_path.exists() else []
+    script = json.loads(script_path.read_text(encoding="utf-8")) if script_path.exists() else {}
+    keywords = script.get("keywords", [])
 
     cuts = plan_cuts(sentence_spans(subs["cues"]), subs["total_sec"])
     use_pexels = os.environ.get("USE_PEXELS", "false").strip().lower() in ("1", "true", "yes", "on")
+    image_provider = (args.image_provider or os.environ.get("IMAGE_PROVIDER", "none")).strip().lower()
+    if image_provider not in IMAGE_PROVIDERS:
+        sys.exit(f"IMAGE_PROVIDER={image_provider!r} 는 지원하지 않습니다. 가능: {', '.join(IMAGE_PROVIDERS)}")
 
-    # 소재 출처 결정
+    # 소재 출처 결정: 로컬 → 생성(fal) → Pexels → 그라데이션
     source, files, label = "gradient", [], ""
     if not args.gradient:
         files, label = local_assets(topic.id)
         if files:
             source = "local"
+        elif image_provider == "fal":
+            source = "fal"
         elif use_pexels:
             source = "pexels"
+    if source == "fal" and not os.environ.get("FAL_KEY"):
+        print("⚠ IMAGE_PROVIDER=fal 이지만 FAL_KEY 가 없어 " + ("Pexels 로" if use_pexels and os.environ.get("PEXELS_API_KEY") else "그라데이션으로") + " 대체합니다.")
+        source = "pexels" if use_pexels and os.environ.get("PEXELS_API_KEY") else "gradient"
     if source == "pexels" and not os.environ.get("PEXELS_API_KEY"):
         print("⚠ USE_PEXELS=true 이지만 PEXELS_API_KEY 가 없어 그라데이션으로 대체합니다.")
         source = "gradient"
 
+    style = load_image_style() if (image_provider == "fal" or args.dry_run) else None
     print(f"[{topic.id}] 총 {subs['total_sec']:.1f}초 → 컷 {len(cuts)}개 (최소 {MIN_CUT_SEC}초) / 소재: {source}"
           + (f" ({label}, {len(files)}개)" if source == "local" else "")
+          + (f" ({os.environ.get('FAL_MODEL', DEFAULT_FAL_MODEL)}, {os.environ.get('FAL_IMAGE_SIZE', DEFAULT_FAL_SIZE)})" if source == "fal" else "")
           + (f" (USE_PEXELS={use_pexels}, keywords={keywords})" if source == "pexels" else ""))
 
     if args.dry_run:
+        show_prompts = image_provider == "fal" or source == "fal"
+        if show_prompts:
+            print(f"  공통 style : {style['style']}\n  공통 avoid : {style['avoid']}\n  (컷별 프롬프트 = 아래 장면 + 공통 style + 'Avoid: ' + 공통 avoid)")
         for c in cuts:
             print(f"  컷{c['index']:2d} {c['start']:6.2f} → {c['end']:6.2f} ({c['duration']:.1f}s) 문장 {c['sentences']}")
+            if show_prompts:
+                scene = build_image_prompt(c, script, style).split(". " + style["style"])[0]
+                print(f"        bg_{c['index']:02d}.png ← {scene}")
+        if image_provider == "fal":
+            print(f"FAL_KEY: {'있음' if os.environ.get('FAL_KEY') else '없음 (실행 시 그라데이션 폴백)'}  "
+                  f"— 실제 실행 시 fal.ai 이미지 생성 {len(cuts)}장 과금")
         print("[dry-run] 파일을 만들지 않았습니다.")
         return 0
 
@@ -232,6 +304,21 @@ def main() -> int:
         chosen = assign_round_robin(files, len(cuts), topic.id)
         for c, f in zip(cuts, chosen):
             c.update({"type": "video" if f.suffix.lower() in VIDEO_EXTS else "image", "file": str(f)})
+    elif source == "fal":
+        print(f"  fal.ai 이미지 {len(cuts)}장 생성 …")
+        for c in cuts:
+            out = work_dir / f"bg_{c['index']:02d}.png"
+            prompt = build_image_prompt(c, script, style)
+            seed = int(topic.id) * 1000 + c["index"] if topic.id.isdigit() else c["index"]
+            if out.exists() and not args.force:
+                meta = {"reused": True}
+            else:
+                meta = fal_generate(prompt, out, seed)
+                if not out.exists() or out.stat().st_size < 10_000:
+                    sys.exit(f"생성 이미지가 비정상입니다: {out}")
+            c.update({"type": "image", "file": str(out), "prompt": prompt, "fal": meta})
+            print(f"    bg_{c['index']:02d}.png {'(기존)' if meta.get('reused') else '생성'}  {prompt[:70]}…")
+        attribution = [{"provider": "fal.ai", "model": os.environ.get("FAL_MODEL", DEFAULT_FAL_MODEL)}]
     elif source == "pexels":
         picked = fetch_pexels(keywords or [topic.topic], len(cuts), os.environ["PEXELS_API_KEY"], bg_dir)
         if not picked:
