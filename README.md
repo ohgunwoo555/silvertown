@@ -15,7 +15,7 @@ assets/music, fonts   배경음악, 자막 폰트
 output/{id}/          중간 산출물 (script.json, 음성, 자막 …) — 커밋 금지
 output/{id}.mp4       최종 영상 — 커밋 금지
 01_write.py           대본 생성
-02_tts.py             (예정) 나레이션 음성
+02_tts.py             나레이션 음성 (Naver Clova Voice, 문장별 합성 → narration.mp3 + audio.json)
 03_subtitle.py        (예정) 자막 타이밍
 04_background.py      (예정) 배경 소재
 05_render.py          (예정) 렌더
@@ -39,3 +39,14 @@ python 01_write.py --id 001 --force
 
 생성된 대본은 문장 수·글자 수·존댓말·금지어·안전 문구·핵심 메시지 반복을 자동 검사하고,
 실패하면 1회 재생성한다. 그래도 남는 문제는 종료 코드 1과 함께 출력된다.
+
+## 02 TTS (Naver Clova Voice)
+
+```bash
+python 02_tts.py --dry-run          # 요청 내용만 확인 (API 호출 없음)
+python 02_tts.py                    # output/001/narration.mp3 + audio.json
+python 02_tts.py --speaker nminsang --speed 2
+```
+
+문장마다 따로 합성해 길이를 재고 0.5초 간격으로 이어 붙인다.
+`audio.json` 의 문장별 start/end 가 03 자막 타이밍의 입력이 된다. ffmpeg/ffprobe 필요.

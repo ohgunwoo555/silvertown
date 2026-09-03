@@ -215,8 +215,11 @@ def main() -> int:
     args = ap.parse_args()
 
     load_dotenv()
-    topic = pick_topic(args.id, args.row)
-    system, user = build_prompt(topic)
+    try:
+        topic = pick_topic(args.id, args.row)
+        system, user = build_prompt(topic)
+    except (FileNotFoundError, ValueError) as e:
+        sys.exit(str(e))
 
     if args.dry_run:
         print("=== SYSTEM ===\n" + system + "\n\n=== USER ===\n" + user)
