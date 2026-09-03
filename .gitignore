@@ -1,0 +1,16 @@
+# 절대 커밋 금지
+output/
+.env
+token.json
+node_modules/
+
+# 파이썬
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 편집기 / OS
+.vscode/
+.idea/
+.DS_Store
