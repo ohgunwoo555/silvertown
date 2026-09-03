@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from pipeline.common import (
+    ASSETS_DIR,
     CHARS_PER_SEC,
     OUTPUT_DIR,
     PAUSE_SEC,
@@ -35,7 +36,22 @@ from pipeline.common import (
 MAX_LINES = SUBTITLE_MAX_LINES
 MIN_CUE_SEC = 1.2      # 이보다 짧은 자막은 읽기 어렵다 → 경고
 GAP_SEC = 0.08         # 다음 자막과의 최소 간격 (문장 사이 무음 동안 자막을 유지)
-FONT_NAME = "NanumGothic"  # assets/fonts 의 폰트 이름. 05 렌더가 fontsdir 로 넘긴다.
+FONT_DIR = ASSETS_DIR / "fonts"
+FONT_FALLBACK = "Pretendard"   # FONT.json 이 없을 때 (tools/fetch_fonts.py 로 받는다)
+
+
+def load_font() -> tuple[str, str | None]:
+    """assets/fonts/FONT.json → (family, 파일 경로). 05 렌더가 fontsdir 로 넘긴다."""
+    meta = FONT_DIR / "FONT.json"
+    if meta.exists():
+        m = json.loads(meta.read_text(encoding="utf-8"))
+        path = FONT_DIR / m["file"]
+        if path.exists():
+            return m["family"], str(path)
+        print(f"⚠ FONT.json 은 있지만 {path.name} 이 없습니다. python tools/fetch_fonts.py 를 실행하세요.")
+        return m["family"], None
+    print("⚠ assets/fonts/FONT.json 이 없습니다. python tools/fetch_fonts.py 를 실행하세요.")
+    return FONT_FALLBACK, None
 
 
 # ---------- 줄 나누기 ----------
@@ -171,7 +187,7 @@ def to_srt(cues: list[dict]) -> str:
     return "\n".join(out)
 
 
-def to_ass(cues: list[dict], font: str = FONT_NAME, size: int = SUBTITLE_FONT_PX) -> str:
+def to_ass(cues: list[dict], font: str, size: int = SUBTITLE_FONT_PX) -> str:
     # 1080x1920 세로. 흰 글자 + 검은 테두리, 화면 중앙 아래쪽(유튜브 UI 를 피해 MarginV 로 올림).
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -225,17 +241,18 @@ def main() -> int:
 
     cues, warnings = build_cues(segments)
     total = cues[-1]["end"] if cues else 0.0
+    font_family, font_file = load_font()
     result = {
         "id": script.get("id"), "timing": timing, "total_sec": round(total, 3),
-        "font": FONT_NAME, "font_px": SUBTITLE_FONT_PX, "line_chars": SUBTITLE_LINE_CHARS,
+        "font": font_family, "font_file": font_file, "font_px": SUBTITLE_FONT_PX, "line_chars": SUBTITLE_LINE_CHARS,
         "cues": cues, "warnings": warnings,
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     (work_dir / "subtitles.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     (work_dir / "subtitles.srt").write_text(to_srt(cues), encoding="utf-8")
-    (work_dir / "subtitles.ass").write_text(to_ass(cues), encoding="utf-8")
+    (work_dir / "subtitles.ass").write_text(to_ass(cues, font_family), encoding="utf-8")
 
-    print(f"[{script.get('id')}] 타이밍: {timing}")
+    print(f"[{script.get('id')}] 타이밍: {timing} / 폰트: {font_family}")
     for c in cues:
         print(f"  {c['start']:6.2f} → {c['end']:6.2f}  {' / '.join(c['lines'])}")
     print(f"\n자막 {len(cues)}개, 총 {total:.1f}초 → {work_dir.relative_to(OUTPUT_DIR.parent)}/subtitles.{{json,srt,ass}}")

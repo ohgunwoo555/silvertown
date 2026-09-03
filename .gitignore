@@ -4,6 +4,12 @@ output/
 token.json
 node_modules/
 
+# 내려받는 소재 (tools/fetch_fonts.py, 04 배경). 라이선스·메타 파일은 커밋한다.
+assets/fonts/*.otf
+assets/fonts/*.ttf
+assets/backgrounds/*
+!assets/backgrounds/README.md
+
 # 파이썬
 __pycache__/
 *.pyc
