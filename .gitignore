@@ -20,3 +20,6 @@ venv/
 .vscode/
 .idea/
 .DS_Store
+
+# OAuth 클라이언트 비밀 파일 (06 --auth 입력)
+client_secret*.json

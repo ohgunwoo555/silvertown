@@ -115,5 +115,7 @@ def read_sources(topic: Topic) -> str:
         text = p.read_text(encoding="utf-8").strip()
         if "출처:" not in text:
             raise ValueError(f"[{topic.id}] '출처:' 줄이 없는 근거 문서는 쓸 수 없습니다: {name}")
+        if "[채워야 함]" in text:
+            raise ValueError(f"[{topic.id}] 근거 문서가 아직 뼈대입니다 ('[채워야 함]' 표시): {name}")
         parts.append(f"<source file=\"{name}\">\n{text}\n</source>")
     return "\n\n".join(parts)

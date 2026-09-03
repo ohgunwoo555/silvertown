@@ -1,2 +1,11 @@
 id,topic,key_message,sources,status
 001,어르신 여름철 탈수 예방,갈증이 안 나도 물을 자주 드세요,dehydration_summer.md,todo
+002,어르신 낙상 예방,일어날 땐 천천히 손잡이부터 잡으세요,fall_prevention.md,todo
+003,겨울 실내 온도,겨울엔 방 안 온도부터 챙기세요,winter_indoor_temp.md,todo
+004,약 복용 시간 착각,약 드셨는지 달력에 표시하세요,medication_timing.md,todo
+005,걷기 운동 강도,말은 되고 노래는 안 되는 빠르기로 걸으세요,walking_intensity.md,todo
+006,짠 음식과 혈압,국물은 남기고 건더기만 드세요,salt_blood_pressure.md,todo
+007,낮잠 시간,낮잠은 짧게 이른 오후에 주무세요,nap_duration.md,todo
+008,눈 검진 주기,눈이 안 아파도 정기 검진 받으세요,eye_exam_interval.md,todo
+009,틀니 관리,틀니는 밤에 빼서 물에 담가 두세요,denture_care.md,todo
+010,응급실 가야 할 증상,한쪽 팔다리 힘 빠지면 바로 119 부르세요,emergency_symptoms.md,todo

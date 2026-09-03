@@ -15,6 +15,7 @@ assets/fonts/         자막 폰트 (tools/fetch_fonts.py 로 내려받음, FONT
 assets/backgrounds/   배경 소재 (공통 또는 {id}/ 하위 폴더)
 assets/music/         배경음악
 tools/fetch_fonts.py  Pretendard Bold(없으면 NanumGothic Bold) + 라이선스 내려받기
+tools/install_ffmpeg.sh  ffmpeg 설치 (apt / brew / winget / conda)
 output/{id}/          중간 산출물 (script.json, 음성, 자막 …) — 커밋 금지
 output/{id}.mp4       최종 영상 — 커밋 금지
 01_write.py           대본 생성
@@ -22,7 +23,7 @@ output/{id}.mp4       최종 영상 — 커밋 금지
 03_subtitle.py        자막 줄나눔·타이밍 (subtitles.json / .srt / .ass)
 04_background.py      배경 소재 배정 (로컬 → Pexels → 그라데이션)
 05_render.py          ffmpeg 렌더 → output/{id}.mp4 (1080x1920 30fps, 자막 번인, 배경음악 -20dB)
-06_upload.py          (예정) 업로드 — 별도 명령으로만
+06_upload.py          YouTube 업로드(기본 private) — 별도 명령으로만, 이 환경에서는 실행 안 함
 ```
 
 ## 준비
@@ -90,3 +91,39 @@ python 05_render.py --dry-run      # ffmpeg 명령만 출력
 ```bash
 python 01_write.py && python 02_tts.py && python 03_subtitle.py && python 04_background.py && python 05_render.py
 ```
+
+## 06 업로드 (별도 실행, 기본 비공개)
+
+```bash
+python 06_upload.py --id 001 --dry-run   # 제목·설명·해시태그 확인
+python 06_upload.py --id 001             # private 업로드, 확인 질문 있음
+```
+
+OAuth 토큰은 `token.json` 에서만 읽는다. 없으면 개인 기기에서 `python 06_upload.py --auth client_secret.json` 으로 만든다. `token.json`, `client_secret*.json` 은 커밋하지 않는다.
+
+## 다음 세션 체크리스트
+
+1. **환경변수 (세션 시작 전에 환경 설정에 넣을 것)**
+   - `ANTHROPIC_API_KEY` — 01 대본 생성
+   - `NCP_CLOVA_CLIENT_ID`, `NCP_CLOVA_CLIENT_SECRET` — 02 TTS (네이버 클라우드 > AI·NAVER API > CLOVA Voice)
+   - 확인: `python -c "import os;print([k for k in ('ANTHROPIC_API_KEY','NCP_CLOVA_CLIENT_ID','NCP_CLOVA_CLIENT_SECRET') if os.environ.get(k)])"`
+2. **도구 설치**
+   ```bash
+   bash tools/install_ffmpeg.sh
+   pip install -r requirements.txt
+   python tools/fetch_fonts.py
+   ```
+3. **근거 문서 채우기** — `sources/*.md` 의 `[채워야 함]` 을 실제 출처(질병관리청 등 공식 자료 URL, 확인일)와 내용으로 바꾼다.
+   표시가 남아 있으면 01 이 대본을 만들지 않는다. 001 의 `dehydration_summer.md` 도 예시 출처를 실제 출처로 바꿀 것.
+4. **첫 실행 순서 (topics.csv 첫 행, 비용 드는 단계는 실행 전 확인)**
+   ```bash
+   python 01_write.py --dry-run      # 프롬프트 확인 (무료)
+   python 01_write.py                # Claude API 1~2회
+   python 02_tts.py --dry-run        # 요청 내용 확인 (무료)
+   python 02_tts.py                  # Clova Voice, 문장 수만큼 호출
+   python 03_subtitle.py             # audio.json 실측 타이밍
+   python 04_background.py           # 소재 없으면 그라데이션
+   python 05_render.py               # output/001.mp4 + preview_*.jpg
+   ```
+   02 결과의 `audio.json` 총 길이를 보고 `pipeline/common.py` 의 `CHARS_PER_SEC`(현재 4.2 추정) 를 보정한다.
+5. **세션 종료 전** — `output/` 을 비운다 (`rm -rf output/*`). 남길 미리보기는 `docs/preview/{id}/` 로 복사.
