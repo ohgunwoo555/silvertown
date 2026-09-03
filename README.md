@@ -46,13 +46,17 @@ python 01_write.py --id 001 --force
 생성된 대본은 문장 수·글자 수·존댓말·금지어·안전 문구·핵심 메시지 반복을 자동 검사하고,
 실패하면 1회 재생성한다. 그래도 남는 문제는 종료 코드 1과 함께 출력된다.
 
-## 02 TTS (Naver Clova Voice)
+## 02 TTS (Naver Clova Voice 또는 edge-tts)
 
 ```bash
-python 02_tts.py --dry-run          # 요청 내용만 확인 (API 호출 없음)
-python 02_tts.py                    # output/001/narration.mp3 + audio.json
-python 02_tts.py --speaker nminsang --speed 2
+python 02_tts.py --dry-run                    # 요청 내용만 확인 (호출 없음)
+python 02_tts.py                              # clova (기본): output/001/narration.mp3 + audio.json
+TTS_PROVIDER=edge python 02_tts.py            # edge-tts: 키 없이, 무료
+python 02_tts.py --provider edge --voice ko-KR-InJoonNeural --rate -15%
+python 02_tts.py --provider clova --speaker nminsang --speed 2
 ```
+
+`TTS_PROVIDER` 는 `.env` 에 넣어도 된다. edge 는 `--rate -15%` 로 0.85배속을 정확히 맞추고, clova 는 정수 단계라 들어보고 조정한다.
 
 문장마다 따로 합성해 길이를 재고 0.5초 간격으로 이어 붙인다.
 `audio.json` 의 문장별 start/end 가 03 자막 타이밍의 입력이 된다. ffmpeg/ffprobe 필요.
@@ -106,6 +110,7 @@ OAuth 토큰은 `token.json` 에서만 읽는다. 없으면 개인 기기에서 
 1. **환경변수 (세션 시작 전에 환경 설정에 넣을 것)**
    - `ANTHROPIC_API_KEY` — 01 대본 생성
    - `NCP_CLOVA_CLIENT_ID`, `NCP_CLOVA_CLIENT_SECRET` — 02 TTS (네이버 클라우드 > AI·NAVER API > CLOVA Voice)
+   - 키가 아직 없으면 `TTS_PROVIDER=edge` 로 먼저 돌려볼 수 있다 (무료, 인터넷 필요)
    - 확인: `python -c "import os;print([k for k in ('ANTHROPIC_API_KEY','NCP_CLOVA_CLIENT_ID','NCP_CLOVA_CLIENT_SECRET') if os.environ.get(k)])"`
 2. **도구 설치**
    ```bash
