@@ -20,9 +20,12 @@ import sys
 from datetime import datetime, timezone
 
 from pipeline.common import (
+    CHARS_PER_SEC,
     OUTPUT_DIR,
+    PAUSE_SEC,
     TEMPLATES_DIR,
     Topic,
+    estimate_seconds,
     load_dotenv,
     pick_topic,
     read_sources,
@@ -31,12 +34,12 @@ from pipeline.common import (
 MODEL = "claude-opus-5"
 TEMPLATE = TEMPLATES_DIR / "script_prompt.md"
 
-# 40~50초 / 0.85배속 기준. 한국어 TTS 약 4자/초 → 0.85배속에서 약 3.4자/초.
-# 45초 ≈ 150자, 문장당 15자 → 10문장 안팎.
+# 40~50초 / 0.85배속 기준. CHARS_PER_SEC(4.2자/초)와 문장 사이 PAUSE_SEC(0.5초)로 계산하면
+# 문장 11개일 때 40초 ≈ 147자, 50초 ≈ 189자. 문장당 15자 → 10~12문장 안팎.
 MIN_SENTENCES = 9
 MAX_SENTENCES = 13
 MAX_CHARS_PER_SENTENCE = 20   # "15자 내외"의 상한 (공백 제외)
-MIN_TOTAL_CHARS = 110   # 공백 제외
+MIN_TOTAL_CHARS = 140   # 공백 제외
 MAX_TOTAL_CHARS = 190
 
 SAFETY_WORDS = ("병원", "의사", "진료")
@@ -258,7 +261,7 @@ def main() -> int:
         "sentences": sents,
         "keywords": script["keywords"],
         "description": script["description"],
-        "stats": {"sentences": len(sents), "chars": total, "est_seconds": round(total / 3.4, 1)},
+        "stats": {"sentences": len(sents), "chars": total, "est_seconds": estimate_seconds(sents)},
         "validation": {"ok": not problems, "problems": problems, "attempts": attempts},
         "model": usage["model"],
         "usage": usage,

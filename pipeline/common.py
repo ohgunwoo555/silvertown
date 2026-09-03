@@ -17,6 +17,21 @@ TEMPLATES_DIR = ROOT / "templates"
 ASSETS_DIR = ROOT / "assets"
 OUTPUT_DIR = ROOT / "output"
 
+# 나레이션 길이 추정: 공백 제외 글자 수 / CHARS_PER_SEC + 문장 사이 PAUSE_SEC
+# CHARS_PER_SEC 는 0.85배속 한국어 TTS 의 어림값. 첫 02 실행 후 audio.json 실측으로 보정할 것.
+CHARS_PER_SEC = 4.2
+PAUSE_SEC = 0.5          # 문장 사이 무음 (02 TTS 가 실제로 넣는 값)
+SUBTITLE_LINE_CHARS = 10  # 자막 한 줄 글자 수 (공백 제외)
+SUBTITLE_MAX_LINES = 3    # 한 화면 최대 줄 수 (90px × 3줄 = 세로 1920 의 1/6)
+SUBTITLE_FONT_PX = 90
+
+
+def estimate_seconds(sentences: list[str]) -> float:
+    """대본 전체 예상 길이(초). 01 검증과 03 추정 모드가 같은 식을 쓴다."""
+    import re
+    chars = sum(len(re.sub(r"\s", "", s)) for s in sentences)
+    return round(chars / CHARS_PER_SEC + max(0, len(sentences) - 1) * PAUSE_SEC, 1)
+
 
 def load_dotenv(path: Path = ROOT / ".env") -> None:
     """.env 의 KEY=VALUE 를 환경변수로 올린다. 기존 값은 유지."""

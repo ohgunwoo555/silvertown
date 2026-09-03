@@ -26,7 +26,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pipeline.common import OUTPUT_DIR, load_dotenv, pick_topic
+from pipeline.common import OUTPUT_DIR, PAUSE_SEC, load_dotenv, pick_topic
 
 CLOVA_URL = "https://naveropenapi.apigw.ntruss.com/tts-premium/v1/tts"
 ENV_ID = "NCP_CLOVA_CLIENT_ID"
@@ -37,7 +37,6 @@ DEFAULT_SPEAKER = os.environ.get("CLOVA_SPEAKER", "nara")
 # Clova speed: -5(빠름) ~ 5(느림), 0 기본. CLAUDE.md 의 0.85x 에 맞춰 1을 기본으로 두고
 # 첫 결과를 들어본 뒤 조정한다. (Clova 는 배속을 숫자로 받지 않는다)
 DEFAULT_SPEED = 1
-PAUSE_SEC = 0.5          # 문장 사이 쉬는 시간
 MAX_TEXT_CHARS = 2000    # Clova 요청당 글자 제한
 
 
