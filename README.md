@@ -21,13 +21,14 @@ output/{id}.mp4       최종 영상 — 커밋 금지
 02_tts.py             나레이션 음성 (Naver Clova Voice, 문장별 합성 → narration.mp3 + audio.json)
 03_subtitle.py        자막 줄나눔·타이밍 (subtitles.json / .srt / .ass)
 04_background.py      배경 소재 배정 (로컬 → Pexels → 그라데이션)
-05_render.py          (예정) 렌더
+05_render.py          ffmpeg 렌더 → output/{id}.mp4 (1080x1920 30fps, 자막 번인, 배경음악 -20dB)
 06_upload.py          (예정) 업로드 — 별도 명령으로만
 ```
 
 ## 준비
 
 ```bash
+sudo apt install ffmpeg        # 05 렌더, 02 TTS 이어붙이기
 pip install -r requirements.txt
 cp .env.example .env         # 키를 채운다. .env 는 커밋되지 않는다.
 python tools/fetch_fonts.py  # 자막 폰트 (Pretendard Bold, SIL OFL) 내려받기
@@ -72,3 +73,20 @@ python 04_background.py            # background.json 생성
 ```
 
 문장 경계에서만 컷을 바꾸고 한 컷은 3초 이상. 소재는 `assets/backgrounds/{id}/` → `assets/backgrounds/` → Pexels(`USE_PEXELS=true` 일 때만) → 그라데이션 PNG 자동 생성 순서로 고른다.
+
+## 05 렌더
+
+```bash
+python 05_render.py --silent       # 나레이션 없이 화면만 확인
+python 05_render.py                # narration.mp3 + assets/music/ 첫 파일 → output/001.mp4
+python 05_render.py --dry-run      # ffmpeg 명령만 출력
+```
+
+컷마다 1080x1920 으로 채우고(가로 소재는 가운데 crop), 이미지 컷은 천천히 확대. 자막은 `.ass` 를 번인.
+배경음악은 -20dB 로 낮춰 섞고 끝에서 2초 페이드아웃. 렌더 후 `preview_*.jpg` 세 장과 `render.json` 을 남긴다.
+
+## 한 편 전체 흐름
+
+```bash
+python 01_write.py && python 02_tts.py && python 03_subtitle.py && python 04_background.py && python 05_render.py
+```
