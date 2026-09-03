@@ -45,9 +45,18 @@ def vis(s: str) -> int:
     return len(re.sub(r"\s", "", s))
 
 
+NBSP = "\u00a0"
+# 다음 어절과 떨어지면 뜻이 끊기는 한 글자 부사. 줄바꿈 계산에서 뒤 어절과 한 덩어리로 다룬다.
+GLUE_WORDS = ("안", "못", "잘", "더", "좀", "꼭", "딱", "다", "또", "늘")
+
+
+def _glue(text: str) -> str:
+    return re.sub(r"(?<!\S)(" + "|".join(GLUE_WORDS) + r") (?=\S)", r"\1" + NBSP, text)
+
+
 def _greedy(text: str, width: int) -> list[str]:
     lines, cur = [], ""
-    for word in text.split(" "):
+    for word in _glue(text).split(" "):
         while vis(word) > width:            # 한 어절이 한 줄보다 길면 강제 분할
             if cur:
                 lines.append(cur); cur = ""
@@ -59,7 +68,7 @@ def _greedy(text: str, width: int) -> list[str]:
             lines.append(cur); cur = word
     if cur:
         lines.append(cur)
-    return lines
+    return [l.replace(NBSP, " ") for l in lines]
 
 
 def wrap_line(text: str, width: int = SUBTITLE_LINE_CHARS) -> list[str]:
